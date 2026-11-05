@@ -1,0 +1,270 @@
+@import "tailwindcss";
+
+/* ═══════════════ Pixelify Sans Variable — self-hosted (кириллица + латиница) ═══════════════ */
+@font-face {
+  font-family: "Pixelify Sans";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("../assets/fonts/PixelifySans-cyrillic.woff2") format("woff2");
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: "Pixelify Sans";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("../assets/fonts/PixelifySans-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4,
+    U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Pixelify Sans";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("../assets/fonts/PixelifySans-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+
+/* ═══════════════ Тёмная фиолетовая палитра ═══════════════ */
+@theme {
+  --color-void: #0b0518;
+  --color-bg: #12081f;
+  --color-panel: #1c1033;
+  --color-panel-2: #241541;
+  --color-edge: #0a0512;
+  --color-line: #3b2566;
+  --color-ink: #ede9fe;
+  --color-dim: #9d8ec4;
+  --color-violet: #a855f7;
+  --color-violet-2: #c084fc;
+  --color-neon: #4ade80;
+  --color-gold: #facc15;
+  --color-rose: #fb7185;
+  --color-cyan: #22d3ee;
+  --color-orange: #fb923c;
+  --font-pixel: "Pixelify Sans", "Courier New", monospace;
+
+  --shadow-chunk: 4px 4px 0 0 var(--color-edge);
+  --shadow-chunk-sm: 2px 2px 0 0 var(--color-edge);
+  --shadow-chunk-lg: 6px 6px 0 0 var(--color-edge);
+}
+
+html,
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-pixel);
+  font-size: 16px;
+  min-height: 100%;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+}
+
+* {
+  image-rendering: pixelated;
+}
+
+::selection {
+  background: var(--color-violet);
+  color: #fff;
+}
+
+/* Тонкий скроллбар в стиле пикселей */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: var(--color-void);
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-line);
+  border: 2px solid var(--color-edge);
+}
+
+/* ═══════════════ Базовые «пиксельные» примитивы ═══════════════ */
+
+.pixel-panel {
+  background: var(--color-panel);
+  border: 2px solid var(--color-edge);
+  box-shadow: var(--shadow-chunk);
+}
+
+.pixel-panel-2 {
+  background: var(--color-panel-2);
+  border: 2px solid var(--color-edge);
+  box-shadow: var(--shadow-chunk-sm);
+}
+
+.pixel-btn {
+  background: var(--color-violet);
+  color: #fff;
+  border: 2px solid var(--color-edge);
+  box-shadow: var(--shadow-chunk-sm);
+  padding: 0.4rem 0.9rem;
+  cursor: pointer;
+  text-transform: none;
+  transition: transform 60ms steps(2), box-shadow 60ms steps(2);
+}
+.pixel-btn:hover {
+  background: var(--color-violet-2);
+}
+.pixel-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 0 var(--color-edge);
+}
+.pixel-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.pixel-btn.ghost {
+  background: var(--color-panel-2);
+  color: var(--color-ink);
+}
+.pixel-btn.ghost:hover {
+  background: var(--color-line);
+}
+.pixel-btn.danger {
+  background: #be123c;
+}
+.pixel-btn.danger:hover {
+  background: var(--color-rose);
+}
+.pixel-btn.gold {
+  background: #b45309;
+}
+.pixel-btn.gold:hover {
+  background: var(--color-gold);
+  color: var(--color-edge);
+}
+
+.pixel-input {
+  background: var(--color-void);
+  border: 2px solid var(--color-edge);
+  box-shadow: inset 2px 2px 0 0 #000;
+  color: var(--color-ink);
+  padding: 0.5rem 0.7rem;
+  font-family: var(--font-pixel);
+  outline: none;
+  width: 100%;
+}
+.pixel-input:focus {
+  border-color: var(--color-violet);
+}
+.pixel-input::placeholder {
+  color: #6b5b95;
+}
+
+.pixel-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border: 2px solid var(--color-edge);
+  background: var(--color-panel-2);
+  padding: 0.1rem 0.45rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  box-shadow: var(--shadow-chunk-sm);
+}
+
+/* Сегментированный прогресс-бар */
+.pixel-progress {
+  display: flex;
+  gap: 2px;
+  height: 14px;
+  background: var(--color-void);
+  border: 2px solid var(--color-edge);
+  padding: 2px;
+}
+.pixel-progress > i {
+  display: block;
+  height: 100%;
+  background: var(--color-line);
+}
+.pixel-progress > i.on {
+  background: var(--color-violet);
+}
+.pixel-progress.green > i.on {
+  background: var(--color-neon);
+}
+.pixel-progress.gold > i.on {
+  background: var(--color-gold);
+}
+
+/* Мерцание выделенного текста */
+@keyframes blink {
+  0%,
+  60% {
+    opacity: 1;
+  }
+  61%,
+  100% {
+    opacity: 0.25;
+  }
+}
+.pixel-blink {
+  animation: blink 1s steps(1, end) infinite;
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-6px);
+  }
+  75% {
+    transform: translateX(6px);
+  }
+}
+.pixel-shake {
+  animation: shake 0.3s steps(2, end) 2;
+}
+
+/* ═══════════════ CRT-оверлей ═══════════════ */
+.crt-overlay {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.16) 0px,
+      rgba(0, 0, 0, 0.16) 1px,
+      transparent 1px,
+      transparent 3px
+    ),
+    radial-gradient(ellipse at center, transparent 55%, rgba(6, 2, 16, 0.55) 100%);
+  mix-blend-mode: multiply;
+  animation: crt-flicker 4s steps(2, end) infinite;
+}
+@keyframes crt-flicker {
+  0%,
+  100% {
+    opacity: 0.9;
+  }
+  50% {
+    opacity: 0.82;
+  }
+}
+
+/* Пульс подсветки карточки дня */
+@keyframes glow-pulse {
+  0%,
+  100% {
+    box-shadow: 4px 4px 0 0 var(--color-edge), 0 0 0 0 rgba(168, 85, 247, 0);
+  }
+  50% {
+    box-shadow: 4px 4px 0 0 var(--color-edge), 0 0 12px 2px rgba(168, 85, 247, 0.45);
+  }
+}
+.today-glow {
+  animation: glow-pulse 2s steps(6, end) infinite;
+}

@@ -1,0 +1,34 @@
+# Зависимости и артефакты сборок
+node_modules/
+.next/
+dist/
+android/
+*.tsbuildinfo
+# next-env.d.ts намеренно не игнорируется — он коммитится (типы для *.png и т.п.)
+
+# Окружение
+.env
+.env.local
+
+# Drizzle
+drizzle/meta/
+
+# Кэши и логи (важно: Tailwind 4 авто-сканирует проект, эти каталоги ему не нужны)
+.cache/
+.local/
+*.log
+playwright-report/
+test-results/
+
+# Локальные артефакты и инструменты (не для репозитория)
+.arena/
+uploads/
+*.apk
+android-sdk/
+jdk17/
+jdk21/
+.gradle/
+.android/
+.config/
+.npm/
+.sudo_as_admin_successful

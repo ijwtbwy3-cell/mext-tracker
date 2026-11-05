@@ -1,0 +1,49 @@
+{
+  "name": "mext-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Личный трекер подготовки к экзаменам MEXT (Natural Sciences) — одна кодовая база, две сборки: Next.js (web, PostgreSQL) и Capacitor + sql.js (offline APK)",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "db:push": "drizzle-kit generate && drizzle-kit migrate",
+    "db:seed": "tsx scripts/seed.ts",
+    "verify": "tsx scripts/verify.ts",
+    "dev:offline": "vite",
+    "build:offline": "vite build",
+    "android:add": "cap add android",
+    "android:sync": "npm run build:offline && cap sync android",
+    "android:open": "cap open android",
+    "smoke:offline": "tsx scripts/smoke-offline.ts",
+    "e2e": "tsx scripts/e2e.ts"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.6.0",
+    "@capacitor/core": "8.6.0",
+    "drizzle-orm": "0.45.2",
+    "next": "16.4.4",
+    "pg": "8.23.1",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "sql.js": "1.15.2"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^4.0.0",
+    "@capacitor/cli": "8.6.0",
+    "@tailwindcss/postcss": "4.3.4",
+    "@types/node": "20.19.43",
+    "@types/pg": "8.23.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "5.2.0",
+    "dotenv": "17.2.3",
+    "drizzle-kit": "0.31.11",
+    "playwright": "^1.64.1",
+    "tailwindcss": "4.3.4",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3",
+    "vite": "8.3.5"
+  },
+  "type": "module"
+}
