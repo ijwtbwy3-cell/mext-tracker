@@ -273,7 +273,22 @@ screenshots/                # скриншоты e2e
 
 ---
 
-## 9. Команды
+## 9. Релизы и CI
+
+* `.github/workflows/checks.yml` — на каждый пуш: `tsc --noEmit`, `verify`, `smoke:offline`.
+* `.github/workflows/release.yml` — по тегу `v*` собирает APK и публикует **GitHub Release**
+  с файлами `mext-tracker-<версия>.apk`, `mext-tracker-source-<версия>.zip` и `SHA256SUMS.txt`:
+
+  ```bash
+  git tag v1.0.0 && git push origin v1.0.0
+  ```
+
+* Локально то же самое одной командой: `./scripts/release.sh 1.0.0` (результат в `release/`).
+* Подробности, подпись APK и обновление поверх старой версии — в `RELEASE.md`.
+
+---
+
+## 10. Команды
 
 ```bash
 # ─── установка ───
@@ -324,7 +339,7 @@ npx tsc --noEmit            # типы
 
 ---
 
-## 10. Окружение (`.env`)
+## 11. Окружение (`.env`)
 
 ```bash
 APP_PASSPHRASE=mext-2027                      # пароль входа (обе сборки)

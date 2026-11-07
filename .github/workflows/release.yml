@@ -1,0 +1,102 @@
+name: Релиз (APK + исходники)
+
+# Автоматический релиз: запушить тег — получить Release с APK.
+#   git tag v1.0.0 && git push origin v1.0.0
+# Либо вручную: Actions → «Релиз (APK + исходники)» → Run workflow → указать тег.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Тег релиза (например, v1.0.0)"
+        required: true
+        default: "v1.0.0"
+
+permissions:
+  contents: write
+
+env:
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Зависимости
+        run: npm ci --no-audit --no-fund
+
+      - name: Проверки (числа, бюджеты, фокус, магазин, офлайн-хранилище)
+        run: |
+          npx tsc --noEmit
+          npm run verify
+          npm run smoke:offline
+
+      - name: Офлайн-бандл (Vite)
+        run: npm run build:offline
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Android SDK 36
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" > /dev/null
+
+      - name: Платформа Android (папка android/ не хранится в репозитории)
+        run: |
+          if [ ! -d android ]; then npx cap add android; fi
+          chmod +x android/gradlew
+          echo "sdk.dir=${ANDROID_SDK_ROOT}" > android/local.properties
+          npx cap sync android
+
+      - name: Иконки и сплэши (пиксельная M, фон #a855f7)
+        run: |
+          npx @capacitor/assets generate --android --assetPath assets-src \
+            --iconBackgroundColor "#a855f7" --splashBackgroundColor "#12081f"
+          find android/app/src/main/res -name ic_launcher_background.xml \
+            -exec sed -i 's/#FFFFFF/#A855F7/g' {} +
+
+      - name: Версия из тега
+        run: |
+          VERSION="${RELEASE_TAG#v}"
+          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
+          sed -i "s/versionCode [0-9]*/versionCode ${GITHUB_RUN_NUMBER}/" android/app/build.gradle
+          sed -i "s/versionName \"[^\"]*\"/versionName \"${VERSION}\"/" android/app/build.gradle
+          grep -E "versionCode|versionName" android/app/build.gradle
+
+      - name: Сборка APK
+        run: |
+          cd android
+          ./gradlew assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk "../mext-tracker-${VERSION}.apk"
+
+      - name: Архив исходников
+        run: git archive --format=zip --prefix=mext-tracker/ -o "mext-tracker-source-${VERSION}.zip" HEAD
+
+      - name: Контрольные суммы
+        run: sha256sum ./*.apk ./*.zip > SHA256SUMS.txt && cat SHA256SUMS.txt
+
+      - name: Публикация Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: MEXT Трекер ${{ env.RELEASE_TAG }}
+          body_path: .github/release-template.md
+          files: |
+            mext-tracker-*.apk
+            mext-tracker-source-*.zip
+            SHA256SUMS.txt
+          fail_on_unmatched_files: true

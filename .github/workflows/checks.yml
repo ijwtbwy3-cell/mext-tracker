@@ -1,0 +1,30 @@
+name: Проверки
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Зависимости
+        run: npm ci --no-audit --no-fund
+
+      - name: Типы TypeScript
+        run: npx tsc --noEmit
+
+      - name: Точные числа, бюджеты, фокус, магазин
+        run: npm run verify
+
+      - name: Офлайн-хранилище (sql.js)
+        run: npm run smoke:offline
