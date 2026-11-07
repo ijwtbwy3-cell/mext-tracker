@@ -42,6 +42,16 @@ gh release create v1.0.0 release/*.apk release/*-source.zip release/SHA256SUMS.t
 
 Без GitHub CLI: **Releases → Draft a new release** → тег `v1.0.0` → прикрепить файлы из `release/`.
 
+## Грабли CI (уже пройдены)
+
+* **`android-actions/setup-android@v3` → `Failed to find package 'tools'`.** Google убрал
+  пакет `tools` из репозиториев SDK, экшен падает. SDK на раннере уже установлен
+  (`/usr/local/lib/android/sdk`), поэтому шаг «Android SDK 36» работает через `sdkmanager`
+  напрямую и доставляет только `platforms;android-36` + `build-tools;36.0.0`.
+* **Отступы в списке `steps:`.** Все шаги — `      - name:` (6 пробелов и дефис),
+  их `run: |` — 8 пробелов, тело скрипта — 10. Сдвиг на 2 пробела ломает YAML:
+  прогон даже не появится в Actions, GitHub покажет ошибку разбора файла.
+
 ## Проверки на каждый пуш
 
 `.github/workflows/checks.yml` прогоняет `tsc --noEmit`, `npm run verify` (точные числа
