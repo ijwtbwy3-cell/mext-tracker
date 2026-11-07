@@ -48,7 +48,7 @@ jobs:
           distribution: temurin
           java-version: "21"
           
-        - name: Android SDK 36
+      - name: Android SDK 36
         run: |
           set -uo pipefail
           SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
