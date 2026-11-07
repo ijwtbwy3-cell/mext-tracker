@@ -40,6 +40,8 @@ type AppContextValue = {
   equipItem: (slot: ShopSlot, itemId: string) => Promise<void>;
   startFocus: (input: { kind: FocusKind; id: string; minutes: number; title?: string }) => Promise<void>;
   cancelFocus: (kind: FocusKind, id: string) => Promise<void>;
+  pauseFocus: (kind: FocusKind, id: string) => Promise<void>;
+  resumeFocus: (kind: FocusKind, id: string) => Promise<void>;
   finishFocus: (
     kind: FocusKind,
     id: string,
@@ -208,6 +210,16 @@ export function AppShell({ children }: { children: ReactNode }) {
       cancelFocus: (kind, id) =>
         withBusy(async () => {
           await api.cancelFocus(kind, id);
+          await refresh();
+        }),
+      pauseFocus: (kind, id) =>
+        withBusy(async () => {
+          await api.pauseFocus(kind, id);
+          await refresh();
+        }),
+      resumeFocus: (kind, id) =>
+        withBusy(async () => {
+          await api.resumeFocus(kind, id);
           await refresh();
         }),
       finishFocus: (kind, id) =>

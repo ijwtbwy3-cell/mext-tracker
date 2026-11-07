@@ -18,7 +18,7 @@ const STATUS_META: Record<TopicStatus, { label: string; color: string }> = {
 };
 
 export function SubjectsScreen() {
-  const { data, setTopicStatus, busy, focus, startFocus, cancelFocus, finishFocus } = useApp();
+  const { data, setTopicStatus, busy, focus, startFocus, cancelFocus, finishFocus, pauseFocus, resumeFocus } = useApp();
   const { subjects, sections, topics, progress, totals } = data;
 
   const [openSubject, setOpenSubject] = useState<string | null>(null);
@@ -172,6 +172,8 @@ export function SubjectsScreen() {
                                           compact
                                           reward={topicFocusReward(session.minutes)}
                                           onCancel={() => void cancelFocus("topic", topic.id)}
+                                          onPause={() => void pauseFocus("topic", topic.id)}
+                                          onResume={() => void resumeFocus("topic", topic.id)}
                                           onFinish={async () => {
                                             const res = await finishFocus("topic", topic.id);
                                             if (!res.ok) throw new Error(res.error ?? "Не удалось засчитать тему");

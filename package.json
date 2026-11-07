@@ -1,6 +1,6 @@
 {
   "name": "mext-tracker",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Личный трекер подготовки к экзаменам MEXT (Natural Sciences) — одна кодовая база, две сборки: Next.js (web, PostgreSQL) и Capacitor + sql.js (offline APK)",
   "scripts": {

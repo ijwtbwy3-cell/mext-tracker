@@ -128,6 +128,18 @@ export const api = {
       body: JSON.stringify({ action: "cancel", kind, id }),
     }),
 
+  pauseFocus: (kind: FocusKind, id: string) =>
+    request<{ session: FocusSession; focus: FocusMap }>("/api/focus", {
+      method: "POST",
+      body: JSON.stringify({ action: "pause", kind, id }),
+    }),
+
+  resumeFocus: (kind: FocusKind, id: string) =>
+    request<{ session: FocusSession; focus: FocusMap }>("/api/focus", {
+      method: "POST",
+      body: JSON.stringify({ action: "resume", kind, id }),
+    }),
+
   finishFocus: (kind: FocusKind, id: string) =>
     request<{ result: FocusFinishResult; focus: FocusMap }>("/api/focus", {
       method: "POST",

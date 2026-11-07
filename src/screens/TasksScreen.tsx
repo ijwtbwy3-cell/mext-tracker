@@ -41,7 +41,7 @@ function calcStreak(tasks: TaskRow[]): number {
 }
 
 export function TasksScreen() {
-  const { data, reopenTask, busy, focus, startFocus, cancelFocus, finishFocus } = useApp();
+  const { data, reopenTask, busy, focus, startFocus, cancelFocus, finishFocus, pauseFocus, resumeFocus } = useApp();
   const { tasks, planDays, settings, subjects, totals } = data;
 
   const today = todayISO();
@@ -218,6 +218,8 @@ export function TasksScreen() {
                         busy={busy}
                         reward={reward}
                         onCancel={() => void cancelFocus("task", task.id)}
+                        onPause={() => void pauseFocus("task", task.id)}
+                        onResume={() => void resumeFocus("task", task.id)}
                         onFinish={async () => {
                           const res = await finishFocus("task", task.id);
                           if (!res.ok) throw new Error(res.error ?? "Не удалось засчитать задание");

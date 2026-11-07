@@ -21,7 +21,17 @@ import {
   parseInventory,
   sanitizeProfile,
 } from "../src/lib/shop";
-import { remainingMs, topicFocusReward, topicMinutes, type FocusSession } from "../src/lib/focus";
+import {
+  elapsedMsTotal,
+  isFinished,
+  isPaused,
+  pauseSession,
+  remainingMs,
+  resumeSession,
+  topicFocusReward,
+  topicMinutes,
+  type FocusSession,
+} from "../src/lib/focus";
 import { parseTopicFocus, topicFocusBonus } from "../src/lib/social";
 
 let failures = 0;
@@ -154,11 +164,27 @@ ok(parseInventory(null).frames.includes(FREE_FRAME), "в инвентаре вс
 
 console.log("\n══ ФОКУС-РЕЖИМ ══");
 const now = Date.now();
-const fresh: FocusSession = { kind: "task", id: "t", minutes: 50, startedAt: now };
+const fresh: FocusSession = { kind: "task", id: "t", minutes: 50, elapsedMs: 0, startedAt: now };
 const expired: FocusSession = { ...fresh, startedAt: now - 51 * 60_000 };
 ok(remainingMs(fresh, now) === 50 * 60_000, "свежий таймер показывает полное время");
 ok(remainingMs(expired, now) === 0, "истёкший таймер = 0 (только тогда зачёт)");
 ok(remainingMs({ ...fresh, startedAt: now - 25 * 60_000 }, now) === 25 * 60_000, "обратный отсчёт идёт по startedAt");
+
+// пауза: остаток замирает и переживает «следующий заход»
+const after10 = { ...fresh, startedAt: now - 10 * 60_000 };
+const paused = pauseSession(after10, now);
+ok(isPaused(paused), "пауза переводит таймер в состояние «на паузе»");
+ok(paused.elapsedMs === 10 * 60_000, `на паузе накоплено 10 мин (${Math.round(paused.elapsedMs / 60000)} мин)`);
+ok(!isFinished(paused, now), "на паузе задание не засчитывается");
+ok(remainingMs(paused, now + 60 * 60_000) === 40 * 60_000, "через час на паузе остаток тот же — 40 мин");
+ok(
+  remainingMs(paused, now + 5 * 24 * 60 * 60_000) === 40 * 60_000,
+  "даже через 5 дней пауза держит остаток",
+);
+const resumed = resumeSession(paused, now + 60 * 60_000);
+ok(!isPaused(resumed) && remainingMs(resumed, now + 60 * 60_000) === 40 * 60_000, "продолжение стартует с того же остатка");
+ok(elapsedMsTotal(resumed, now + 65 * 60_000) === 15 * 60_000, "после продолжения время снова тикает");
+ok(isFinished({ ...resumed, startedAt: now + 60 * 60_000 - 41 * 60_000 }, now + 60 * 60_000), "после добивания таймер истекает");
 ok(topicMinutes(2.5) === 150, "часы темы переводятся в минуты (2.5 ч = 150 мин)");
 const tr = topicFocusReward(120);
 ok(tr.xp === Math.round(120 * XP_PER_MINUTE) && tr.coins === Math.round(120 / COINS_DIVISOR), "тема даёт XP 0.4/мин и монеты 0.25/мин");

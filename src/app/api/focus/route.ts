@@ -1,6 +1,6 @@
 import { getWebStore } from "@/lib/db/web-store";
 import { isAuthenticated, unauthorized } from "@/lib/server/auth";
-import { SocialError, cancelFocus, finishFocus, readFocus, startFocus } from "@/lib/social";
+import { SocialError, cancelFocus, finishFocus, pauseFocus, readFocus, resumeFocus, startFocus } from "@/lib/social";
 import type { FocusKind } from "@/lib/focus";
 
 export const dynamic = "force-dynamic";
@@ -27,6 +27,14 @@ export async function POST(req: Request) {
     if (body.action === "cancel") {
       await cancelFocus(store, kind, id);
       return Response.json({ focus: await readFocus(store) });
+    }
+    if (body.action === "pause") {
+      const session = await pauseFocus(store, kind, id);
+      return Response.json({ session, focus: await readFocus(store) });
+    }
+    if (body.action === "resume") {
+      const session = await resumeFocus(store, kind, id);
+      return Response.json({ session, focus: await readFocus(store) });
     }
     if (body.action === "finish") {
       const result = await finishFocus(store, kind, id);

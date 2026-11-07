@@ -12,6 +12,8 @@ import {
   buyItem,
   cancelFocus,
   coinsState,
+  pauseFocus,
+  resumeFocus,
   equipItem,
   finishFocus,
   readFocus,
@@ -175,6 +177,14 @@ async function handle(path: string, method: string, body: Record<string, unknown
       if (body?.action === "cancel") {
         await cancelFocus(store, kind, id);
         return json({ focus: await readFocus(store) });
+      }
+      if (body?.action === "pause") {
+        const session = await pauseFocus(store, kind, id);
+        return json({ session, focus: await readFocus(store) });
+      }
+      if (body?.action === "resume") {
+        const session = await resumeFocus(store, kind, id);
+        return json({ session, focus: await readFocus(store) });
       }
       if (body?.action === "finish") {
         const result = await finishFocus(store, kind, id);

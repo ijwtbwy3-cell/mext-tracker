@@ -10,8 +10,19 @@ import path from "node:path";
 import { DDL } from "../src/lib/offline/ddl";
 import { SqliteStore } from "../src/lib/offline/sqlite-store";
 import { CURRICULUM_VERSION } from "../src/lib/curriculum";
-import { topicFocusReward } from "../src/lib/focus";
-import { SocialError, buyItem, coinsState, equipItem, finishFocus, readProfile, saveProfile, startFocus } from "../src/lib/social";
+import { isPaused, parseFocus, topicFocusReward } from "../src/lib/focus";
+import {
+  SocialError,
+  buyItem,
+  coinsState,
+  equipItem,
+  finishFocus,
+  pauseFocus,
+  readProfile,
+  resumeFocus,
+  saveProfile,
+  startFocus,
+} from "../src/lib/social";
 
 let failures = 0;
 const ok = (cond: boolean, msg: string) => {
@@ -130,6 +141,32 @@ async function main() {
   const afterFocus = await store.bootstrap();
   ok(afterFocus.tasks.find((t) => t.id === focusTask.id)?.status === "done", "задание закрыто после таймера");
   ok(Object.keys(JSON.parse(afterFocus.settings.focusSessions ?? "{}")).length === 0, "сессия фокуса очищена");
+
+  // пауза сохраняется между «заходами»
+  const pauseTask = (await store.bootstrap()).tasks.find((t) => t.status === "todo")!;
+  await startFocus(store, { kind: "task", id: pauseTask.id, minutes: 40 });
+  const pausedSession = await pauseFocus(store, "task", pauseTask.id);
+  ok(isPaused(pausedSession), "пауза записана в settings");
+  let pausedBlocked = false;
+  try {
+    await finishFocus(store, "task", pauseTask.id);
+  } catch (e) {
+    pausedBlocked = e instanceof SocialError;
+  }
+  ok(pausedBlocked, "на паузе задание не засчитывается даже при «истёкшем» времени");
+
+  const reopened = parseFocus(new SqliteStore(db).getSetting("focusSessions") as string)[`task:${pauseTask.id}`];
+  ok(
+    isPaused(reopened) && reopened.elapsedMs === pausedSession.elapsedMs,
+    "после перезапуска приложения пауза на том же месте",
+  );
+
+  await resumeFocus(store, "task", pauseTask.id);
+  const rawPause = JSON.parse((await store.getSetting("focusSessions")) ?? "{}");
+  rawPause[`task:${pauseTask.id}`].startedAt = Date.now() - (pauseTask.minutes + 1) * 60_000;
+  await store.setSetting("focusSessions", JSON.stringify(rawPause));
+  const finPause = await finishFocus(store, "task", pauseTask.id);
+  ok(finPause.reward.xp > 0, `после продолжения и добивания задание засчитано (+${finPause.reward.xp} XP)`);
 
   // фокус по теме даёт XP и статус «изучено»
   const topic = (await store.bootstrap()).topics[0];

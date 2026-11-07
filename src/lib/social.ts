@@ -29,7 +29,11 @@ import {
   FOCUS_KEY,
   focusKey,
   isFinished,
+  isPaused,
   parseFocus,
+  pauseSession,
+  remainingMs,
+  resumeSession,
   serializeFocus,
   topicFocusReward,
   type FocusKind,
@@ -176,6 +180,7 @@ export async function startFocus(
     kind: input.kind,
     id: input.id,
     minutes,
+    elapsedMs: 0,
     startedAt: Date.now(),
     title: input.title,
   };
@@ -190,6 +195,43 @@ export async function cancelFocus(store: SocialStore, kind: FocusKind, id: strin
   if (!map[key]) return;
   delete map[key];
   await store.setSetting(FOCUS_KEY, serializeFocus(map));
+}
+
+async function patchFocus(
+  store: SocialStore,
+  kind: FocusKind,
+  id: string,
+  patch: (session: FocusSession, now: number) => FocusSession,
+  now: number,
+): Promise<FocusSession> {
+  const map = await readFocus(store);
+  const key = focusKey(kind, id);
+  const session = map[key];
+  if (!session) throw new SocialError("Таймер не запущен");
+  const next = patch(session, now);
+  map[key] = next;
+  await store.setSetting(FOCUS_KEY, serializeFocus(map));
+  return next;
+}
+
+/** Пауза: остаток фиксируется и сохраняется между заходами. */
+export async function pauseFocus(
+  store: SocialStore,
+  kind: FocusKind,
+  id: string,
+  now: number = Date.now(),
+): Promise<FocusSession> {
+  return patchFocus(store, kind, id, (session, at) => pauseSession(session, at), now);
+}
+
+/** Продолжить с того же места. */
+export async function resumeFocus(
+  store: SocialStore,
+  kind: FocusKind,
+  id: string,
+  now: number = Date.now(),
+): Promise<FocusSession> {
+  return patchFocus(store, kind, id, (session, at) => resumeSession(session, at), now);
 }
 
 export type FocusFinishResult = {
@@ -210,8 +252,12 @@ export async function finishFocus(
   const session = map[key];
   if (!session) throw new SocialError("Таймер не запущен");
   if (!isFinished(session, now)) {
-    const left = Math.ceil((session.startedAt + session.minutes * 60_000 - now) / 1000);
-    throw new SocialError(`Ещё не время: осталось ${left} с`);
+    const left = Math.ceil(remainingMs(session, now) / 1000);
+    throw new SocialError(
+      isPaused(session)
+        ? `Таймер на паузе: осталось ${left} с — сначала продолжите`
+        : `Ещё не время: осталось ${left} с`,
+    );
   }
 
   if (kind === "task") {

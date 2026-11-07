@@ -164,9 +164,27 @@ async function runSuite(base: string, label: string) {
     "прерванный фокус сбрасывается без награды",
   );
 
-  // честный прогон: запускаем снова и «отсиживаем» таймер
+  // пауза: остаток замирает и сохраняется между заходами
   await page.locator("button:has-text('Выполнить')").first().click();
   await page.waitForSelector("text=Прервать", { timeout: 10000 });
+  await page.locator("button:has-text('Пауза')").first().click();
+  await page.waitForSelector("text=Продолжить", { timeout: 10000 });
+  ok(true, "кнопка «Пауза» останавливает фокус-таймер");
+  const clockA = (await page.locator("b.tabular-nums").first().textContent())?.trim();
+  await page.waitForTimeout(2500);
+  const clockB = (await page.locator("b.tabular-nums").first().textContent())?.trim();
+  ok(clockA === clockB, `на паузе таймер не тикает (${clockA} → ${clockB})`);
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector("text=Продолжить", { timeout: 20000 });
+  const clockC = (await page.locator("b.tabular-nums").first().textContent())?.trim();
+  ok(clockC === clockA, `пауза пережила перезагрузку — остаток тот же (${clockC})`);
+
+  await page.locator("button:has-text('Продолжить')").first().click();
+  await page.waitForSelector("button:has-text('Пауза')", { timeout: 10000 });
+  ok(true, "фокус продолжен с того же места");
+
+  // добиваем таймер: сдвигаем старт отрезка в прошлое и перезагружаем
   const aged = await ageFocus(page, "task");
   ok(aged > 0, `таймер запущен и досрочно не засчитывается (сессий: ${aged})`);
   // перезагрузка = как будто время прошло: приложение видит истёкший таймер
