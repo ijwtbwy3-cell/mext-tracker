@@ -142,6 +142,8 @@ export class SqliteStore implements DataStore {
     insertRows(this.db, "subjects", content.subjects as unknown as AnyRow[]);
     insertRows(this.db, "sections", content.sections as unknown as AnyRow[]);
     insertRows(this.db, "topics", content.topics as unknown as AnyRow[]);
+    // подчистка прогресса по темам, которых больше нет (например, убранная биология)
+    run(this.db, "DELETE FROM progress WHERE topic_id NOT IN (SELECT id FROM topics)");
     insertRows(this.db, "plan_days", content.planDays as unknown as AnyRow[]);
     insertRows(this.db, "tasks", content.tasks as unknown as AnyRow[]);
 

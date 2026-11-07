@@ -78,6 +78,8 @@ export class WebStore implements DataStore {
       for (let i = 0; i < content.topics.length; i += 100) {
         await tx.insert(t.topics).values(content.topics.slice(i, i + 100));
       }
+      // подчистка прогресса по темам, которых больше нет (например, убранная биология)
+      await tx.execute(sql`DELETE FROM progress WHERE topic_id NOT IN (SELECT id FROM topics)`);
       for (let i = 0; i < content.planDays.length; i += 100) {
         await tx.insert(t.planDays).values(content.planDays.slice(i, i + 100));
       }

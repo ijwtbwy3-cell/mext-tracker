@@ -1,6 +1,6 @@
 /**
  * Смоук-тест офлайн-слоя данных: реальный sql.js (SQLite WASM) в Node.
- * Проверяет: сид контента и плана (6/49/284, 754), выполнение задания
+ * Проверяет: сид контента и плана (5/40/225, 636), выполнение задания
  * с наградами, статусы тем, дневник, резервную копию v1, сброс.
  *
  * Запуск: npx tsx scripts/smoke-offline.ts
@@ -29,15 +29,15 @@ async function main() {
 
   console.log("\n══ OFFLINE SMOKE: sql.js ══");
   const boot = await store.bootstrap();
-  ok(boot.subjects.length === 6, `предметов: ${boot.subjects.length}`);
-  ok(boot.sections.length === 49, `разделов: ${boot.sections.length}`);
-  ok(boot.topics.length === 284, `тем: ${boot.topics.length}`);
+  ok(boot.subjects.length === 5, `предметов: ${boot.subjects.length}`);
+  ok(boot.sections.length === 40, `разделов: ${boot.sections.length}`);
+  ok(boot.topics.length === 225, `тем: ${boot.topics.length}`);
   ok(boot.planDays.length === 209, `дней плана: ${boot.planDays.length}`);
-  ok(boot.tasks.length === 754, `заданий: ${boot.tasks.length}`);
+  ok(boot.tasks.length === 636, `заданий: ${boot.tasks.length}`);
   ok(boot.settings.curriculumVersion === CURRICULUM_VERSION, `curriculumVersion=${boot.settings.curriculumVersion}`);
   ok(boot.settings.startDate === "2026-11-04", `startDate=${boot.settings.startDate}`);
   ok(boot.settings.examDate === "2027-06-01", `examDate=${boot.settings.examDate}`);
-  ok(boot.totals.tasksTotal === 754 && boot.totals.xp === 0, "стартовые тоталы нулевые");
+  ok(boot.totals.tasksTotal === 636 && boot.totals.xp === 0, "стартовые тоталы нулевые");
 
   console.log("\n══ выполнение задания ══");
   const first = boot.tasks.find((t) => t.type === "theory")!;
@@ -92,7 +92,7 @@ async function main() {
   console.log("\n══ резервная копия JSON v1 ══");
   const backup = await store.exportBackup();
   ok(backup.v === 1 && backup.app === "mext-tracker", `формат v${backup.v}/${backup.app}`);
-  ok(backup.data.tasks.length === 754 && backup.data.diary.length === 1, "в копии 754 задания и 1 запись");
+  ok(backup.data.tasks.length === 636 && backup.data.diary.length === 1, "в копии 636 заданий и 1 запись");
   await store.resetProgress();
   const afterReset = await store.bootstrap();
   ok(afterReset.totals.tasksDone === 0 && afterReset.diary.length === 0, "сброс прогресса очистил данные");
@@ -105,7 +105,7 @@ async function main() {
   console.log("\n══ повторное открытие (сид идемпотентен) ══");
   const store2 = new SqliteStore(db);
   const bootAgain = await store2.bootstrap();
-  ok(bootAgain.tasks.length === 754 && bootAgain.subjects.length === 6, "ensureSeeded не перетирает данные при совпадении версии");
+  ok(bootAgain.tasks.length === 636 && bootAgain.subjects.length === 5, "ensureSeeded не перетирает данные при совпадении версии");
 
   console.log("\n══ ИТОГ ══");
   if (failures === 0) console.log("  Все проверки пройдены ✓\n");

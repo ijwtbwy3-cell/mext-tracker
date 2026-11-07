@@ -11,7 +11,6 @@ const title: Record<string, string> = {
   math: "Математика",
   chemistry: "Химия",
   physics: "Физика",
-  biology: "Биология",
   japanese: "Японский",
   english: "Английский",
 };

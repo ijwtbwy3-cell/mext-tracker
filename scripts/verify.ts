@@ -1,7 +1,7 @@
 /**
  * Проверка «точных чисел» ТЗ:
- *   • 6 предметов, 49 разделов, 284 темы (с раскладкой по каждому предмету)
- *   • 754 задания по типам, детерминизм, бюджеты дней не превышены
+ *   • 5 предметов, 40 разделов, 225 тем (с раскладкой по каждому предмету)
+ *   • 636 заданий по типам, детерминизм, бюджеты дней не превышены
  *   • полное покрытие тем планом (каждая тема = теория + практика)
  *   • формулы наград
  *
@@ -25,14 +25,14 @@ const ok = (cond: boolean, msg: string) => {
 console.log("\n══ КУРРИКУЛУМ ══");
 const stats = curriculumStats();
 console.table(stats.perSubject.map((s) => ({ Предмет: s.title, Разделы: s.sections, Темы: s.topics, Часы: s.hours })));
-ok(stats.subjects === 6, `предметов: ${stats.subjects} (нужно 6)`);
-ok(stats.sections === 49, `разделов: ${stats.sections} (нужно 49)`);
-ok(stats.topics === 284, `тем: ${stats.topics} (нужно 284)`);
+ok(stats.subjects === 5, `предметов: ${stats.subjects} (нужно 5)`);
+ok(stats.sections === 40, `разделов: ${stats.sections} (нужно 40)`);
+ok(stats.topics === 225, `тем: ${stats.topics} (нужно 225)`);
 ok(SUBJECT_SEEDS.every((s) => s.sections.length >= 2 && s.sections.every((sec) => sec.topics.length > 0)), "у каждого предмета есть разделы с темами");
 ok(FLAT_TOPICS.every((t) => t.title.length > 0 && t.description.length > 0 && t.hours > 0 && t.difficulty >= 1 && t.difficulty <= 5), "каждая тема: название, описание, часы, сложность 1..5");
 ok(FLAT_TOPICS.every((t) => ["базовый", "средний", "продвинутый"].includes(t.level)), "уровни только из допустимого набора");
-ok(new Set(FLAT_TOPICS.map((t) => t.id)).size === 284, "id тем уникальны");
-ok(new Set(FLAT_SECTIONS.map((s) => s.id)).size === 49, "id разделов уникальны");
+ok(new Set(FLAT_TOPICS.map((t) => t.id)).size === FLAT_TOPICS.length, "id тем уникальны");
+ok(new Set(FLAT_SECTIONS.map((s) => s.id)).size === FLAT_SECTIONS.length, "id разделов уникальны");
 
 console.log("\n══ ПЛАН ══");
 const plan = generatePlan("2026-11-04");
@@ -44,9 +44,9 @@ console.log(`  суммарно: ${st.total}, минут в плане: ${st.tot
 console.log(`  максимальная загрузка дня: ${st.maxDayLoad?.minutes} мин (бюджет ${st.maxDayLoad?.budget})`);
 
 ok(plan.days.length === PLAN_DAYS && PLAN_DAYS === 209, `дней плана: ${plan.days.length} (нужно 209)`);
-ok(st.total === 754, `всего заданий: ${st.total} (нужно 754)`);
-ok(st.byType.theory === 284, `теория: ${st.byType.theory} (нужно 284)`);
-ok(st.byType.practice === 284, `практика: ${st.byType.practice} (нужно 284)`);
+ok(st.total === 636, `всего заданий: ${st.total} (нужно 636)`);
+ok(st.byType.theory === 225, `теория: ${st.byType.theory} (нужно 225)`);
+ok(st.byType.practice === 225, `практика: ${st.byType.practice} (нужно 225)`);
 ok(st.byType.review === 172, `повторение: ${st.byType.review} (нужно 172)`);
 ok(st.byType.mock === 14, `пробник: ${st.byType.mock} (нужно 14)`);
 ok(st.overBudgetDays === 0, `дней с превышением бюджета: ${st.overBudgetDays} (нужно 0)`);
@@ -58,8 +58,8 @@ ok(JSON.stringify(plan.tasks) === JSON.stringify(plan2.tasks) && JSON.stringify(
 // покрытие: у каждой темы есть теория и практика
 const theoryTopics = new Set(plan.tasks.filter((t) => t.type === "theory").map((t) => t.topicId));
 const practiceTopics = new Set(plan.tasks.filter((t) => t.type === "practice").map((t) => t.topicId));
-ok(theoryTopics.size === 284 && FLAT_TOPICS.every((t) => theoryTopics.has(t.id)), "каждая тема получила теорию");
-ok(practiceTopics.size === 284 && FLAT_TOPICS.every((t) => practiceTopics.has(t.id)), "каждая тема получила практику");
+ok(theoryTopics.size === 225 && FLAT_TOPICS.every((t) => theoryTopics.has(t.id)), "каждая тема получила теорию");
+ok(practiceTopics.size === 225 && FLAT_TOPICS.every((t) => practiceTopics.has(t.id)), "каждая тема получила практику");
 
 // повторения: бандлы непусты и темы существуют
 const reviews = plan.tasks.filter((t) => t.type === "review");

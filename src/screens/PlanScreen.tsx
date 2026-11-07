@@ -27,7 +27,7 @@ const TYPE_ICON: Record<TaskType, IconName> = {
 
 export function PlanScreen() {
   const { data } = useApp();
-  const { planDays, tasks, settings } = data;
+  const { planDays, tasks, settings, totals } = data;
   const [phaseFilter, setPhaseFilter] = useState<number>(0); // 0 = все
   const [openDay, setOpenDay] = useState<number | null>(null);
 
@@ -69,7 +69,7 @@ export function PlanScreen() {
             </h1>
             <div className="flex flex-wrap gap-2 mt-1.5">
               <Chip color="var(--color-gold)">209 дней</Chip>
-              <Chip color="var(--color-violet-2)">754 задания</Chip>
+              <Chip color="var(--color-violet-2)">{totals.tasksTotal} задания</Chip>
               <Chip color="var(--color-cyan)">4 фазы</Chip>
             </div>
           </div>

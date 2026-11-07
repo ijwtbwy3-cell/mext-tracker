@@ -4,7 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "MEXT Трекер",
   description:
-    "Личный трекер подготовки к экзаменам MEXT (Natural Sciences): план на 209 дней, 284 темы, 754 задания, награды XP и монетами.",
+    "Личный трекер подготовки к экзаменам MEXT (Natural Sciences A): план на 209 дней, 225 тем, 636 заданий, награды XP и монетами.",
 };
 
 export const viewport: Viewport = {

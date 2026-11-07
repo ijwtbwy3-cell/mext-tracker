@@ -1,0 +1,21 @@
+import { chromium } from "playwright";
+const PASS = process.env.APP_PASSPHRASE ?? "mext-2027";
+(async () => {
+  const b = await chromium.launch();
+  const p = await b.newPage();
+  p.on("console", (m) => { if (m.type() === "error") console.log("CONSOLE_ERR:", m.text().slice(0, 300)); });
+  p.on("pageerror", (e) => console.log("PAGE_ERR:", String(e).slice(0, 300)));
+  await p.goto("http://127.0.0.1:3000");
+  await p.waitForSelector('input[type="password"]');
+  await p.fill('input[type="password"]', PASS);
+  await p.click("button");
+  await p.waitForSelector("text=День", { timeout: 20000 });
+  await p.click("nav >> text=План");
+  await p.waitForTimeout(1500);
+  await p.click("nav >> text=Расписание");
+  await p.waitForTimeout(3000);
+  const body = await p.locator("body").innerText();
+  console.log("HAS_0700:", body.includes("07:00"));
+  console.log("BODY:", body.slice(0, 600).replace(/\n+/g, " | "));
+  await b.close();
+})();

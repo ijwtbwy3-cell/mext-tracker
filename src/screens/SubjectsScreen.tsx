@@ -1,6 +1,6 @@
 "use client";
 
-/** Экран «Предметы»: 6 предметов → 49 разделов → 284 темы со статусами и сложностью. */
+/** Экран «Предметы»: предметы → разделы → темы со статусами и сложностью. */
 
 import { useMemo, useState } from "react";
 import { useApp } from "@/components/AppShell";
@@ -17,7 +17,7 @@ const STATUS_META: Record<TopicStatus, { label: string; color: string }> = {
 
 export function SubjectsScreen() {
   const { data, setTopicStatus, busy } = useApp();
-  const { subjects, sections, topics, progress } = data;
+  const { subjects, sections, topics, progress, totals } = data;
 
   const [openSubject, setOpenSubject] = useState<string | null>(null);
   const [openSection, setOpenSection] = useState<string | null>(null);
@@ -56,16 +56,16 @@ export function SubjectsScreen() {
             Предметы
           </h1>
           <div className="flex gap-1.5">
-            <Chip color="var(--color-violet-2)">6 предметов</Chip>
-            <Chip color="var(--color-cyan)">49 разделов</Chip>
-            <Chip color="var(--color-gold)">284 темы</Chip>
+            <Chip color="var(--color-violet-2)">{subjects.length} предметов</Chip>
+            <Chip color="var(--color-cyan)">{sections.length} разделов</Chip>
+            <Chip color="var(--color-gold)">{topics.length} темы</Chip>
           </div>
         </div>
         <div className="flex items-center gap-3 mt-3">
           <span className="text-xs uppercase tracking-wider whitespace-nowrap" style={{ color: "var(--color-dim)" }}>
-            Изучено: <b style={{ color: "var(--color-neon)" }}>{topicsDone}/284</b>
+            Изучено: <b style={{ color: "var(--color-neon)" }}>{topicsDone}/{totals.topicsTotal}</b>
           </span>
-          <ProgressBar value={topicsDone} max={284} tone="green" segments={28} className="flex-1" />
+          <ProgressBar value={topicsDone} max={totals.topicsTotal} tone="green" segments={28} className="flex-1" />
         </div>
         <div className="mt-2">
           <button className="pixel-chip cursor-pointer" onClick={() => setOnlyUnfinished((v) => !v)}>

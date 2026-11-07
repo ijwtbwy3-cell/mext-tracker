@@ -29,12 +29,12 @@ const EXAMS: ExamCard[] = [
   { key: "english", date: "2027-06-02", subjectIds: ["english"] },
   { key: "math", date: "2027-06-03", subjectIds: ["math"] },
   { key: "chemistry", date: "2027-06-04", subjectIds: ["chemistry"] },
-  { key: "science", date: "2027-06-05", subjectIds: ["physics", "biology"], note: "Выбор: Физика или Биология" },
+  { key: "science", date: "2027-06-05", subjectIds: ["physics"], note: "Направление: Natural Sciences A" },
 ];
 
 export function ExamScreen() {
   const { data, setSetting, restore, resetProgress, logout, busy } = useApp();
-  const { subjects, topics, progress, settings, totals } = data;
+  const { subjects, sections, topics, progress, planDays, settings, totals } = data;
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [confirmReset, setConfirmReset] = useState(false);
@@ -118,7 +118,7 @@ export function ExamScreen() {
               </span>
             </div>
             <div className="text-[11px] uppercase tracking-wider" style={{ color: "var(--color-dim)" }}>
-              {formatShort(examDate)} · MEXT Natural Sciences
+              {formatShort(examDate)} · MEXT Natural Sciences A
             </div>
           </div>
         </div>
@@ -128,10 +128,10 @@ export function ExamScreen() {
       <Card className="p-4">
         <div className="flex items-center justify-between text-xs uppercase tracking-wider mb-2" style={{ color: "var(--color-dim)" }}>
           <span>
-            Темы: <b style={{ color: "var(--color-neon)" }}>{totals.topicsDone}/284</b>
+            Темы: <b style={{ color: "var(--color-neon)" }}>{totals.topicsDone}/{totals.topicsTotal}</b>
           </span>
           <span>
-            Задания: <b style={{ color: "var(--color-violet-2)" }}>{totals.tasksDone}/754</b>
+            Задания: <b style={{ color: "var(--color-violet-2)" }}>{totals.tasksDone}/{totals.tasksTotal}</b>
           </span>
           <span>
             XP: <b style={{ color: "var(--color-gold)" }}>{totals.xp}</b>
@@ -140,11 +140,11 @@ export function ExamScreen() {
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
             <span className="text-[11px] w-16 shrink-0" style={{ color: "var(--color-dim)" }}>Темы</span>
-            <ProgressBar value={totals.topicsDone} max={284} tone="green" segments={24} className="flex-1" />
+            <ProgressBar value={totals.topicsDone} max={totals.topicsTotal} tone="green" segments={24} className="flex-1" />
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[11px] w-16 shrink-0" style={{ color: "var(--color-dim)" }}>План</span>
-            <ProgressBar value={totals.tasksDone} max={754} segments={24} className="flex-1" />
+            <ProgressBar value={totals.tasksDone} max={totals.tasksTotal} segments={24} className="flex-1" />
           </div>
         </div>
       </Card>
@@ -276,7 +276,7 @@ export function ExamScreen() {
             </b>
           </span>
           <span style={{ color: "var(--color-dim)" }}>
-            Контент встроен: 6 предметов · 49 разделов · 284 темы · 209 дней · 754 задания.
+            Контент встроен: {subjects.length} предметов · {sections.length} разделов · {topics.length} тем · {planDays.length} дней · {totals.tasksTotal} заданий.
           </span>
           <span style={{ color: "var(--color-dim)" }}>
             Пароль — из переменной APP_PASSPHRASE. Внешних HTTP-запросов приложение не выполняет.

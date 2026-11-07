@@ -84,14 +84,14 @@ async function runSuite(base: string, label: string) {
   ok(await page.locator("text=Фаза 1: Фундамент").first().isVisible(), "карточка дня: фаза «Фундамент»");
   ok(await page.locator("text=из 209").first().isVisible(), "счётчик дня «из 209»");
 
-  // главный предмет дня = из экрана «Расписание» (Пн Мат, Вт Физ, Ср Хим, Чт Мат, Пт Анг, Сб Био, Вс Яп)
+  // главный предмет дня = из экрана «Расписание» (Пн Мат, Вт Физ, Ср Хим, Чт Мат, Пт Анг, Сб Физ, Вс Яп)
   {
     const now = new Date();
     const wd = (now.getDay() + 6) % 7;
     const dayNo =
       Math.round((Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) - Date.UTC(2026, 10, 4)) / 86400000) + 1;
     if (dayNo % 14 !== 0 && dayNo >= 1 && dayNo <= 209) {
-      const shortSubject = ["Мат", "Физ", "Хим", "Мат", "Анг", "Био", "Яп"][wd];
+      const shortSubject = ["Мат", "Физ", "Хим", "Мат", "Анг", "Физ", "Яп"][wd];
       ok(
         (await page.locator(`text=${shortSubject}`).count()) > 0,
         `предмет дня «${shortSubject}» совпадает с расписанием`,
@@ -140,9 +140,12 @@ async function runSuite(base: string, label: string) {
   await shot(page, `${label}-plan`);
 
   // ── расписание ──
-  await gotoTab(page, "Расписание", "07:00–07:30");
-  ok((await page.locator("text=MEXT 2028").count()) > 0, "шапка «MEXT 2028: план подготовки»");
+  await gotoTab(page, "Расписание", "MEXT 2028: план подготовки");
+  ok(true, "шапка «MEXT 2028: план подготовки»");
   ok((await page.locator("text=Сегодня").count()) > 0, "чип «Сегодня» привязан к дню");
+  await page.locator("button:text-is('Пн')").click();
+  await page.waitForSelector("text=07:00–07:30", { timeout: 5000 });
+  ok(true, "будний день: утренний блок 07:00–07:30");
   await page.locator("button:text-is('Сб')").click();
   await page.waitForSelector("text=Свободный вечер", { timeout: 5000 });
   ok(true, "субботний режим отображается");
@@ -156,7 +159,7 @@ async function runSuite(base: string, label: string) {
 
   // ── предметы ──
   await gotoTab(page, "Предметы", "Изучено");
-  ok((await page.locator("text=284 темы").count()) > 0, "сводка «284 темы»");
+  ok((await page.locator("text=225 темы").count()) > 0, "сводка «225 темы»");
   await page.locator("button:has-text('Математика B')").click();
   await page.waitForSelector("text=Алгебра и вычисления", { timeout: 5000 });
   await page.locator("button:has-text('Алгебра и вычисления')").click();
@@ -186,7 +189,7 @@ async function runSuite(base: string, label: string) {
   await gotoTab(page, "Экзамен", "5 письменных экзаменов");
   ok((await page.locator("text=до экзамена").count()) > 0, "обратный отсчёт отображается");
   ok((await page.locator("text=Japanese B").count()) > 0, "карточки экзаменов (Japanese B …)");
-  ok((await page.locator("text=Physics/Biology").count()) > 0, "выбор Physics/Biology");
+  ok((await page.locator("text=Natural Sciences A").count()) > 0, "экзамен Physics · Natural Sciences A");
   ok((await page.locator("button:has-text('Экспорт JSON v1')").count()) > 0, "кнопка экспорта JSON v1");
   await shot(page, `${label}-exam`);
 
