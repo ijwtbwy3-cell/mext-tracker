@@ -7,6 +7,8 @@ import { useApp } from "@/components/AppShell";
 import { Button, Card, Chip, ProgressBar, SectionTitle, StatBox } from "@/components/ui";
 import { PixelIcon, type IconName } from "@/components/PixelIcon";
 import { PHASES } from "@/lib/plan-generator";
+import { FocusTimer } from "@/components/FocusTimer";
+import { formatDuration, focusKey, taskFocusReward } from "@/lib/focus";
 import type { TaskRow } from "@/lib/types";
 import { formatFull, todayISO, weekdayIndex, WEEKDAYS_SHORT, diffDays } from "@/lib/dates";
 import type { TaskType } from "@/lib/plan-generator";
@@ -39,7 +41,7 @@ function calcStreak(tasks: TaskRow[]): number {
 }
 
 export function TasksScreen() {
-  const { data, completeTask, reopenTask, busy } = useApp();
+  const { data, reopenTask, busy, focus, startFocus, cancelFocus, finishFocus } = useApp();
   const { tasks, planDays, settings, subjects, totals } = data;
 
   const today = todayISO();
@@ -113,7 +115,7 @@ export function TasksScreen() {
             </div>
           ) : null}
 
-          <div className="flex items-center justify-between text-xs uppercase tracking-wider" style={{ color: "var(--color-dim)" }}>
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[11px] uppercase tracking-wider" style={{ color: "var(--color-dim)" }}>
             <span>
               Задания: <b style={{ color: "var(--color-ink)" }}>{doneTasks.length}/{dayTasks.length}</b>
             </span>
@@ -153,6 +155,8 @@ export function TasksScreen() {
             const meta = TYPE_META[task.type];
             const subject = task.subjectId ? subjectById.get(task.subjectId) : null;
             const done = task.status === "done";
+            const session = focus[focusKey("task", task.id)];
+            const reward = taskFocusReward(task.minutes, task.type);
             const bonus =
               task.type === "mock" ? "+25 XP за пробник" : task.type === "review" ? "+30 XP за повторение" : null;
 
@@ -199,8 +203,28 @@ export function TasksScreen() {
                       <span style={{ color: "var(--color-neon)" }}>
                         ✓ выполнено{task.spentMin ? ` · ${task.spentMin} мин` : ""}
                       </span>
-                    ) : null}
+                    ) : session ? null : (
+                      <span className="flex items-center gap-1" style={{ color: "var(--color-dim)" }}>
+                        <PixelIcon name="clock" size={9} color="var(--color-dim)" />
+                        фокус {formatDuration(task.minutes)} → потом зачёт
+                      </span>
+                    )}
                   </div>
+
+                  {session ? (
+                    <div className="mt-2">
+                      <FocusTimer
+                        session={session}
+                        busy={busy}
+                        reward={reward}
+                        onCancel={() => void cancelFocus("task", task.id)}
+                        onFinish={async () => {
+                          const res = await finishFocus("task", task.id);
+                          if (!res.ok) throw new Error(res.error ?? "Не удалось засчитать задание");
+                        }}
+                      />
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="shrink-0 flex flex-col gap-1.5">
@@ -208,8 +232,19 @@ export function TasksScreen() {
                     <Button variant="ghost" icon="loop" disabled={busy} onClick={() => void reopenTask(task.id)}>
                       Вернуть
                     </Button>
-                  ) : (
-                    <Button icon="check" disabled={busy} onClick={() => void completeTask(task.id)}>
+                  ) : session ? null : (
+                    <Button
+                      icon="check"
+                      disabled={busy}
+                      onClick={() =>
+                        void startFocus({
+                          kind: "task",
+                          id: task.id,
+                          minutes: task.minutes,
+                          title: task.title,
+                        })
+                      }
+                    >
                       Выполнить
                     </Button>
                   )}

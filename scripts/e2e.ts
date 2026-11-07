@@ -3,8 +3,9 @@
  *   web     — http://127.0.0.1:3000  (Next.js + PostgreSQL)
  *   offline — http://127.0.0.1:4173  (Vite-бандл, fetch-bridge -> sql.js)
  *
- * Проверяет: вход по паролю, все 6 экранов, выполнение задания с наградой XP,
- * добавление записи дневника, сохранность данных после перезагрузки (offline).
+ * Проверяет: вход по паролю, все 6 экранов, фокус-режим (задание и тема
+ * засчитываются только после таймера), профиль, магазин косметики,
+ * добавление записи дневника, сохранность данных после перезагрузки.
  * Скриншоты кладёт в screenshots/.
  *
  * Запуск: servers должны быть подняты; npx tsx scripts/e2e.ts
@@ -43,6 +44,51 @@ async function login(page: Page, base: string, label: string) {
 async function headerXp(page: Page): Promise<number> {
   const text = (await page.locator("header b").first().textContent()) ?? "0";
   return parseInt(text.replace(/\D/g, ""), 10) || 0;
+}
+
+/** Вызов API из контекста страницы: в web — сеть, в offline — fetch-bridge. */
+async function apiJson(
+  page: Page,
+  url: string,
+  init?: { method?: string; body?: string },
+): Promise<{ status: number; body: any }> {
+  return page.evaluate(
+    async ({ url, init }) => {
+      const res = await fetch(url, {
+        method: init?.method ?? "GET",
+        headers: { "Content-Type": "application/json" },
+        body: init?.body,
+      });
+      let body: unknown = null;
+      try {
+        body = await res.json();
+      } catch {
+        body = null;
+      }
+      return { status: res.status, body };
+    },
+    { url, init },
+  );
+}
+
+/** «Отсиживаем» таймер: сдвигаем startedAt в прошлое, приложение само засчитает. */
+async function ageFocus(page: Page, kind: "task" | "topic"): Promise<number> {
+  const boot = await apiJson(page, "/api/bootstrap");
+  const map = JSON.parse(boot.body?.settings?.focusSessions ?? "{}") as Record<
+    string,
+    { kind: string; minutes: number; startedAt: number }
+  >;
+  let touched = 0;
+  for (const key of Object.keys(map)) {
+    if (map[key].kind !== kind) continue;
+    map[key].startedAt = Date.now() - (map[key].minutes + 1) * 60_000;
+    touched++;
+  }
+  const res = await apiJson(page, "/api/settings", {
+    method: "POST",
+    body: JSON.stringify({ key: "focusSessions", value: JSON.stringify(map) }),
+  });
+  return touched > 0 && res.status === 200 ? touched : 0;
 }
 
 async function gotoTab(page: Page, tab: string, expectText: string) {
@@ -100,33 +146,42 @@ async function runSuite(base: string, label: string) {
   }
   await shot(page, `${label}-tasks`);
 
-  // ── выполнение задания ──
-  // В web запрос идёт по сети (ловим ответ), в offline fetch-bridge отвечает
-  // внутри страницы — там просто ждём изменения DOM.
+  // ── фокус-режим: задание засчитывается только после таймера ──
   const doneBefore = await page.locator("button:has-text('Вернуть')").count();
-  if (base === WEB) {
-    const [completeResp] = await Promise.all([
-      page.waitForResponse(
-        (r) => r.url().includes("/api/tasks/complete") && r.request().method() === "POST",
-        { timeout: 15000 },
-      ),
-      page.locator("button:has-text('Выполнить')").first().click(),
-    ]);
-    ok(completeResp.status() === 200, `POST /api/tasks/complete → ${completeResp.status()}`);
-  } else {
-    await page.locator("button:has-text('Выполнить')").first().click();
-    ok(true, "fetch-bridge выполнил задание локально");
-  }
+
+  // прерывание фокуса ничего не засчитывает
+  await page.locator("button:has-text('Выполнить')").first().click();
+  await page.waitForSelector("text=Прервать", { timeout: 10000 });
+  ok(true, "кнопка «Выполнить» запускает фокус-таймер");
+  ok(
+    (await page.locator("button:has-text('Вернуть')").count()) === doneBefore,
+    "до конца таймера задание не засчитано",
+  );
+  await page.locator("button:has-text('Прервать')").first().click();
+  await page.waitForSelector("text=Прервать", { state: "detached", timeout: 10000 });
+  ok(
+    (await page.locator("button:has-text('Прервать')").count()) === 0,
+    "прерванный фокус сбрасывается без награды",
+  );
+
+  // честный прогон: запускаем снова и «отсиживаем» таймер
+  await page.locator("button:has-text('Выполнить')").first().click();
+  await page.waitForSelector("text=Прервать", { timeout: 10000 });
+  const aged = await ageFocus(page, "task");
+  ok(aged > 0, `таймер запущен и досрочно не засчитывается (сессий: ${aged})`);
+  // перезагрузка = как будто время прошло: приложение видит истёкший таймер
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector("text=День", { timeout: 20000 });
   await page.waitForFunction(
-    (n) => document.querySelectorAll("button").length > 0 &&
+    (n) =>
       Array.from(document.querySelectorAll("button")).filter((b) => b.textContent?.includes("Вернуть")).length > n,
     doneBefore,
-    { timeout: 15000 },
+    { timeout: 20000 },
   );
   const doneAfter = await page.locator("button:has-text('Вернуть')").count();
-  ok(doneAfter === doneBefore + 1, `задание выполнено (${doneBefore}→${doneAfter})`);
+  ok(doneAfter === doneBefore + 1, `фокус до конца → задание засчитано (${doneBefore}→${doneAfter})`);
   const xp1 = await headerXp(page);
-  ok(xp1 > xp0, `XP в шапке вырос: ${xp0} → ${xp1}`);
+  ok(xp1 > xp0, `XP начислен после таймера: ${xp0} → ${xp1}`);
   ok((await page.locator("text=Все задания дня выполнены").count()) >= 0, "прогресс-бар дня пересчитан");
 
   // ── план ──
@@ -175,6 +230,35 @@ async function runSuite(base: string, label: string) {
     // тема уже «в работе» после выполнения теории
     ok((await page.locator("text=В работе").count()) > 0, "статус темы обновлён после выполнения теории");
   }
+  // фокус-таймер по теме: тема закрывается только по завершении
+  const studiedBefore = await page.locator("button:has-text('Изучено')").count();
+  const topicFocusBtn = page.locator("button:has-text('Фокус')").first();
+  if ((await topicFocusBtn.count()) > 0) {
+    await topicFocusBtn.click();
+    await page.waitForSelector("text=Прервать", { timeout: 10000 });
+    ok(true, "у темы есть фокус-таймер на её часы");
+    const agedTopic = await ageFocus(page, "topic");
+    ok(agedTopic > 0, `таймер темы «отсижен» (сессий: ${agedTopic})`);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector("text=Изучено", { timeout: 20000 });
+    await page.locator("button:has-text('Математика B')").click();
+    await page.waitForSelector("text=Алгебра и вычисления", { timeout: 5000 });
+    await page.locator("button:has-text('Алгебра и вычисления')").click();
+    await page.waitForSelector("text=Числа и вычисления", { timeout: 5000 });
+    await page.waitForFunction(
+      (n) =>
+        Array.from(document.querySelectorAll("button")).filter((b) => b.textContent?.includes("Изучено")).length > n,
+      studiedBefore,
+      { timeout: 20000 },
+    );
+    await page.waitForTimeout(800);
+    ok(
+      (await page.locator("button:has-text('Изучено')").count()) > studiedBefore,
+      "тема закрыта после завершения фокуса",
+    );
+  } else {
+    ok(false, "кнопка фокуса у темы не найдена");
+  }
   await shot(page, `${label}-subjects`);
 
   // ── дневник ──
@@ -193,11 +277,56 @@ async function runSuite(base: string, label: string) {
   ok((await page.locator("button:has-text('Экспорт JSON v1')").count()) > 0, "кнопка экспорта JSON v1");
   await shot(page, `${label}-exam`);
 
+  // ── профиль и магазин ──
+  await page.click("header a");
+  await page.waitForSelector("text=Магазин", { timeout: 15000 });
+  ok(true, "экран профиля открывается из шапки");
+
+  await page.fill("input.pixel-input", "Тестер");
+  await page.click("button:has-text('Сохранить профиль')");
+  await page.waitForTimeout(1200);
+  ok((await page.locator("text=Тестер").count()) > 0, "юзернейм сохранён и виден в шапке");
+
+  await page.click('button[title="Ниндзя"]');
+  await page.waitForTimeout(1000);
+  const afterAvatar = await apiJson(page, "/api/bootstrap");
+  ok(
+    afterAvatar.body?.settings?.profile?.includes('"avatar":"ninja"'),
+    "аватар-пресет записан в профиль",
+  );
+
+  const coinBalance = Number((await page.locator("header b").nth(1).textContent())?.replace(/\D/g, "") ?? 0);
+  const buyBtn = page.locator("button:has-text('Купить')").first();
+  if ((await buyBtn.count()) > 0 && coinBalance >= 10) {
+    await buyBtn.click();
+    await page.waitForTimeout(1500);
+    const afterBuy = await apiJson(page, "/api/bootstrap");
+    ok(
+      afterBuy.body?.settings?.inventory?.includes("frame-coal"),
+      `покупка в магазине списала монеты и выдала предмет (баланс был ${coinBalance})`,
+    );
+    ok(Number(afterBuy.body?.settings?.shopSpent ?? 0) >= 10, "траты монет учтены в shopSpent");
+    await page.locator("button:has-text('Надеть')").first().click();
+    await page.waitForTimeout(1200);
+    const afterEquip = await apiJson(page, "/api/bootstrap");
+    ok(
+      afterEquip.body?.settings?.profile?.includes('"frame":"frame-coal"'),
+      "купленная рамка экипирована",
+    );
+  } else {
+    ok(false, `не хватает монет для покупки (баланс ${coinBalance})`);
+  }
+  await shot(page, `${label}-profile`);
+
   // ── перезагрузка: сессия и данные сохраняются ──
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector("text=5 письменных экзаменов", { timeout: 20000 });
+  await page.waitForSelector("text=Магазин", { timeout: 20000 });
   const xpAfter = await headerXp(page);
   ok(xpAfter >= xp1, `после перезагрузки XP на месте (${xpAfter})`);
+  ok(
+    (await apiJson(page, "/api/bootstrap")).body?.settings?.profile?.includes("Тестер"),
+    "профиль пережил перезагрузку",
+  );
   await gotoTab(page, "Дневник", "Новая запись");
   ok(
     (await page.locator(`text=E2E-проверка ${label}`).count()) > 0,

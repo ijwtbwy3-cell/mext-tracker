@@ -6,6 +6,7 @@ import initSqlJs, { type Database } from "sql.js";
 import { DDL } from "./ddl";
 import { idbGet, idbSet } from "./idb";
 import { buildContent, defaultSettings } from "../content";
+import { applySocialTotals } from "../social";
 import { CURRICULUM_VERSION } from "../curriculum";
 import { DEFAULT_START_DATE, addDaysISO } from "../plan-generator";
 import {
@@ -105,7 +106,7 @@ export class SqliteStore implements DataStore {
 
   /* ───────────── settings helpers ───────────── */
 
-  private getSetting(key: string): string | null {
+  getSetting(key: string): string | null {
     const row = get<{ value: string }>(this.db, "SELECT value FROM settings WHERE key = ?", [key]);
     return row ? row.value : null;
   }
@@ -202,7 +203,7 @@ export class SqliteStore implements DataStore {
       planDays,
       tasks,
       diary,
-      totals: computeTotals({ tasks, topicsDone, topicsTotal: topics.length }),
+      totals: applySocialTotals(computeTotals({ tasks, topicsDone, topicsTotal: topics.length }), settings),
     };
   }
 
@@ -216,7 +217,9 @@ export class SqliteStore implements DataStore {
     );
     const topicsDone = scalar(this.db, "SELECT COUNT(*) AS n FROM progress WHERE status = 'done'");
     const topicsTotal = scalar(this.db, "SELECT COUNT(*) AS n FROM topics");
-    return computeTotals({ tasks: taskRows, topicsDone, topicsTotal });
+    const settingsRows = all<{ key: string; value: string }>(this.db, "SELECT key, value FROM settings");
+    const settings: SettingsMap = Object.fromEntries(settingsRows.map((r) => [r.key, r.value]));
+    return applySocialTotals(computeTotals({ tasks: taskRows, topicsDone, topicsTotal }), settings);
   }
 
   private rederiveTopic(topicId: string): void {
@@ -337,6 +340,11 @@ export class SqliteStore implements DataStore {
   async setSetting(key: string, value: string): Promise<void> {
     this.setSettingRow(key, value);
     await this.persistNow();
+  }
+
+  /** Сколько монет заработано заданиями (без учёта трат в магазине). */
+  async earnedCoins(): Promise<number> {
+    return scalar(this.db, "SELECT COALESCE(SUM(awarded_coins), 0) AS n FROM tasks");
   }
 
   async exportBackup(): Promise<BackupV1> {

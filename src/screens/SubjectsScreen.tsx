@@ -6,6 +6,8 @@ import { useMemo, useState } from "react";
 import { useApp } from "@/components/AppShell";
 import { Button, Card, Chip, Hearts, ProgressBar, SectionTitle } from "@/components/ui";
 import { PixelIcon } from "@/components/PixelIcon";
+import { FocusTimer } from "@/components/FocusTimer";
+import { focusKey, formatDuration, topicFocusReward, topicMinutes } from "@/lib/focus";
 import type { TopicRow, TopicStatus } from "@/lib/types";
 import { nextTopicStatus } from "@/lib/store";
 
@@ -16,7 +18,7 @@ const STATUS_META: Record<TopicStatus, { label: string; color: string }> = {
 };
 
 export function SubjectsScreen() {
-  const { data, setTopicStatus, busy } = useApp();
+  const { data, setTopicStatus, busy, focus, startFocus, cancelFocus, finishFocus } = useApp();
   const { subjects, sections, topics, progress, totals } = data;
 
   const [openSubject, setOpenSubject] = useState<string | null>(null);
@@ -148,6 +150,8 @@ export function SubjectsScreen() {
                             {secTopics.map((topic) => {
                               const status = statusByTopic.get(topic.id) ?? "none";
                               const meta = STATUS_META[status];
+                              const session = focus[focusKey("topic", topic.id)];
+                              const minutes = topicMinutes(topic.hours);
                               return (
                                 <div key={topic.id} className="flex gap-2.5 items-start">
                                   <div className="flex-1 min-w-0">
@@ -160,17 +164,52 @@ export function SubjectsScreen() {
                                     <p className="text-[11px] mt-0.5 leading-snug" style={{ color: "var(--color-dim)" }}>
                                       {topic.description}
                                     </p>
+                                    {session ? (
+                                      <div className="mt-1.5">
+                                        <FocusTimer
+                                          session={session}
+                                          busy={busy}
+                                          compact
+                                          reward={topicFocusReward(session.minutes)}
+                                          onCancel={() => void cancelFocus("topic", topic.id)}
+                                          onFinish={async () => {
+                                            const res = await finishFocus("topic", topic.id);
+                                            if (!res.ok) throw new Error(res.error ?? "Не удалось засчитать тему");
+                                          }}
+                                        />
+                                      </div>
+                                    ) : null}
                                   </div>
-                                  <button
-                                    className="pixel-chip cursor-pointer whitespace-nowrap"
-                                    style={{ color: meta.color, borderColor: meta.color }}
-                                    disabled={busy}
-                                    onClick={() => void setTopicStatus(topic.id, nextTopicStatus(status))}
-                                    title="Сменить статус"
-                                  >
-                                    {status === "done" ? <PixelIcon name="check" size={9} color={meta.color} /> : null}
-                                    {status === "doing" ? "◐" : status === "done" ? "★" : "○"} {meta.label}
-                                  </button>
+                                  <div className="shrink-0 flex flex-col gap-1 items-end">
+                                    <button
+                                      className="pixel-chip cursor-pointer whitespace-nowrap"
+                                      style={{ color: meta.color, borderColor: meta.color }}
+                                      disabled={busy}
+                                      onClick={() => void setTopicStatus(topic.id, nextTopicStatus(status))}
+                                      title="Сменить статус"
+                                    >
+                                      {status === "done" ? <PixelIcon name="check" size={9} color={meta.color} /> : null}
+                                      {status === "doing" ? "◐" : status === "done" ? "★" : "○"} {meta.label}
+                                    </button>
+                                    {status !== "done" && !session ? (
+                                      <button
+                                        className="pixel-chip cursor-pointer whitespace-nowrap"
+                                        style={{ color: "var(--color-violet-2)", borderColor: "var(--color-violet-2)" }}
+                                        disabled={busy}
+                                        onClick={() =>
+                                          void startFocus({
+                                            kind: "topic",
+                                            id: topic.id,
+                                            minutes,
+                                            title: topic.title,
+                                          })
+                                        }
+                                        title={`Фокус-таймер на ${formatDuration(minutes)}`}
+                                      >
+                                        <PixelIcon name="clock" size={8} color="var(--color-violet-2)" /> Фокус
+                                      </button>
+                                    ) : null}
+                                  </div>
                                 </div>
                               );
                             })}

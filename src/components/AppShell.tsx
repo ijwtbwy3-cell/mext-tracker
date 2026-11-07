@@ -16,14 +16,34 @@ import {
   type ReactNode,
 } from "react";
 import { api, ApiError } from "@/lib/api";
+import { parseInventory, parseProfile, type Inventory, type Profile, type ShopSlot } from "@/lib/shop";
+import { parseFocus, type FocusKind, type FocusMap } from "@/lib/focus";
 import type { BackupV1, BootstrapPayload, CompleteTaskResult, DiaryRow, TopicStatus } from "@/lib/types";
+import Link from "next/link";
 import { CRT } from "./CRT";
+import { PixelAvatar } from "./PixelAvatar";
 import { TabBar } from "./TabBar";
 import { PixelIcon } from "./PixelIcon";
 import { LoginScreen } from "@/screens/LoginScreen";
 
 type AppContextValue = {
   data: BootstrapPayload;
+  /** Профиль, инвентарь и фокус-сессии выводятся из settings. */
+  profile: Profile;
+  inventory: Inventory;
+  focus: FocusMap;
+  /** Монеты с учётом трат в магазине. */
+  coinsBalance: number;
+  coinsSpent: number;
+  saveProfile: (patch: { username?: string; bio?: string; avatar?: string }) => Promise<Profile | null>;
+  buyItem: (itemId: string) => Promise<{ ok: boolean; error?: string }>;
+  equipItem: (slot: ShopSlot, itemId: string) => Promise<void>;
+  startFocus: (input: { kind: FocusKind; id: string; minutes: number; title?: string }) => Promise<void>;
+  cancelFocus: (kind: FocusKind, id: string) => Promise<void>;
+  finishFocus: (
+    kind: FocusKind,
+    id: string,
+  ) => Promise<{ ok: boolean; error?: string; reward?: { xp: number; coins: number } }>;
   busy: boolean;
   refresh: () => Promise<void>;
   completeTask: (taskId: string, spentMin?: number) => Promise<CompleteTaskResult | null>;
@@ -89,8 +109,17 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const value = useMemo<AppContextValue | null>(() => {
     if (!data) return null;
+    const profile = parseProfile(data.settings.profile);
+    const inventory = parseInventory(data.settings.inventory);
+    const focus = parseFocus(data.settings.focusSessions);
+    const coinsSpent = Math.max(0, Number(data.settings.shopSpent) || 0);
     return {
       data,
+      profile,
+      inventory,
+      focus,
+      coinsSpent,
+      coinsBalance: Math.max(0, data.totals.coins - coinsSpent),
       busy,
       refresh: () => refresh(),
       completeTask: (taskId, spentMin) =>
@@ -143,6 +172,58 @@ export function AppShell({ children }: { children: ReactNode }) {
           await api.reset();
           await refresh();
         }),
+      saveProfile: (patch) =>
+        (async () => {
+          let next: Profile | null = null;
+          await withBusy(async () => {
+            next = (await api.saveProfile(patch)).profile;
+            await refresh();
+          });
+          return next;
+        })(),
+      buyItem: (itemId) =>
+        (async () => {
+          let result: { ok: boolean; error?: string } = { ok: false };
+          await withBusy(async () => {
+            try {
+              await api.buyItem(itemId);
+              result = { ok: true };
+            } catch (e) {
+              result = { ok: false, error: e instanceof Error ? e.message : String(e) };
+            }
+            await refresh();
+          });
+          return result;
+        })(),
+      equipItem: (slot, itemId) =>
+        withBusy(async () => {
+          await api.equipItem(slot, itemId);
+          await refresh();
+        }),
+      startFocus: (input) =>
+        withBusy(async () => {
+          await api.startFocus(input);
+          await refresh();
+        }),
+      cancelFocus: (kind, id) =>
+        withBusy(async () => {
+          await api.cancelFocus(kind, id);
+          await refresh();
+        }),
+      finishFocus: (kind, id) =>
+        (async () => {
+          let result: { ok: boolean; error?: string; reward?: { xp: number; coins: number } } = { ok: false };
+          await withBusy(async () => {
+            try {
+              const res = await api.finishFocus(kind, id);
+              result = { ok: true, reward: res.result.reward };
+            } catch (e) {
+              result = { ok: false, error: e instanceof Error ? e.message : String(e) };
+            }
+            await refresh();
+          });
+          return result;
+        })(),
       logout: async () => {
         await api.logout();
         setPhase("login");
@@ -207,20 +288,25 @@ export function AppShell({ children }: { children: ReactNode }) {
           style={{ background: "var(--color-panel)", borderColor: "var(--color-edge)" }}
         >
           <div className="mx-auto max-w-3xl px-3 py-2 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 min-w-0">
-              <PixelIcon name="star" size={16} color="var(--color-gold)" />
-              <strong className="text-sm tracking-widest uppercase truncate">
-                MEXT <span style={{ color: "var(--color-violet-2)" }}>Трекер</span>
-              </strong>
-            </div>
+            <Link href="/profile" className="flex items-center gap-2 min-w-0 cursor-pointer" title="Профиль и магазин">
+              <PixelAvatar avatar={value.profile.avatar} frame={value.profile.frame} size={30} glow={false} />
+              <span className="min-w-0">
+                <strong className="block text-[13px] tracking-widest uppercase truncate">
+                  {value.profile.username}
+                </strong>
+                <span className="block text-[9px] uppercase tracking-wider truncate" style={{ color: "var(--color-dim)" }}>
+                  Профиль · магазин
+                </span>
+              </span>
+            </Link>
             <div className="flex items-center gap-3 text-xs" style={{ color: "var(--color-dim)" }}>
               <span className="flex items-center gap-1" title="XP">
                 <PixelIcon name="bolt" size={11} color="var(--color-violet-2)" />
                 <b style={{ color: "var(--color-ink)" }}>{value.data.totals.xp}</b>
               </span>
-              <span className="flex items-center gap-1" title="Монеты">
+              <span className="flex items-center gap-1" title="Монеты (с учётом трат)">
                 <PixelIcon name="coin" size={11} color="var(--color-gold)" />
-                <b style={{ color: "var(--color-ink)" }}>{value.data.totals.coins}</b>
+                <b style={{ color: "var(--color-ink)" }}>{value.coinsBalance}</b>
               </span>
             </div>
           </div>

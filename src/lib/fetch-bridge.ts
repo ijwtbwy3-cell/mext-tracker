@@ -7,6 +7,21 @@
 declare const __APP_PASSPHRASE__: string;
 
 import { getSqliteStore } from "./offline/sqlite-store";
+import {
+  SocialError,
+  buyItem,
+  cancelFocus,
+  coinsState,
+  equipItem,
+  finishFocus,
+  readFocus,
+  readInventory,
+  readProfile,
+  saveProfile,
+  startFocus,
+} from "./social";
+import type { FocusKind } from "./focus";
+import type { ShopSlot } from "./shop";
 
 const AUTH_FLAG = "mext-authed";
 
@@ -25,6 +40,10 @@ function isAuthed(): boolean {
   } catch {
     return false;
   }
+}
+
+function socialMessage(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
 }
 
 async function handle(path: string, method: string, body: Record<string, unknown> | undefined): Promise<Response> {
@@ -92,6 +111,81 @@ async function handle(path: string, method: string, body: Record<string, unknown
     await store.setSetting(String(body?.key ?? ""), String(body?.value ?? ""));
     return json({ ok: true });
   }
+  /* ── профиль ── */
+  if (path === "/api/profile" && method === "GET") {
+    return json({ profile: await readProfile(store), inventory: await readInventory(store) });
+  }
+  if (path === "/api/profile" && method === "POST") {
+    try {
+      const patch: { username?: string; bio?: string; avatar?: string } = {};
+      if (typeof body?.username === "string") patch.username = body.username;
+      if (typeof body?.bio === "string") patch.bio = body.bio;
+      if (typeof body?.avatar === "string") patch.avatar = body.avatar;
+      return json({ profile: await saveProfile(store, patch) });
+    } catch (e) {
+      return json({ error: socialMessage(e) }, 400);
+    }
+  }
+
+  /* ── магазин ── */
+  if (path === "/api/shop" && method === "GET") {
+    return json({
+      profile: await readProfile(store),
+      inventory: await readInventory(store),
+      coins: await coinsState(store),
+    });
+  }
+  if (path === "/api/shop" && method === "POST") {
+    try {
+      if (body?.action === "buy") {
+        const res = await buyItem(store, String(body?.itemId ?? ""));
+        return json({
+          profile: res.profile,
+          inventory: res.inventory,
+          coins: await coinsState(store),
+          bought: res.item.id,
+        });
+      }
+      if (body?.action === "equip") {
+        const slot = String(body?.slot ?? "") as ShopSlot;
+        if (!["frame", "background", "title"].includes(slot)) throw new SocialError("Неверный слот");
+        return json({ profile: await equipItem(store, slot, String(body?.itemId ?? "")) });
+      }
+      return json({ error: "Неизвестное действие" }, 400);
+    } catch (e) {
+      return json({ error: socialMessage(e) }, 400);
+    }
+  }
+
+  /* ── фокус-режим ── */
+  if (path === "/api/focus" && method === "POST") {
+    const kind: FocusKind = body?.kind === "topic" ? "topic" : "task";
+    const id = String(body?.id ?? "");
+    try {
+      if (!id) throw new SocialError("Не указан объект");
+      if (body?.action === "start") {
+        const session = await startFocus(store, {
+          kind,
+          id,
+          minutes: Number(body?.minutes ?? 0),
+          title: typeof body?.title === "string" ? body.title : undefined,
+        });
+        return json({ session, focus: await readFocus(store) });
+      }
+      if (body?.action === "cancel") {
+        await cancelFocus(store, kind, id);
+        return json({ focus: await readFocus(store) });
+      }
+      if (body?.action === "finish") {
+        const result = await finishFocus(store, kind, id);
+        return json({ result, focus: await readFocus(store) });
+      }
+      return json({ error: "Неизвестное действие" }, 400);
+    } catch (e) {
+      return json({ error: socialMessage(e) }, 400);
+    }
+  }
+
   if (path === "/api/backup" && method === "GET") {
     return json(await store.exportBackup());
   }

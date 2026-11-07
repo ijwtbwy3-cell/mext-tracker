@@ -11,6 +11,18 @@ import { SUBJECT_SEEDS, FLAT_SECTIONS, FLAT_TOPICS, curriculumStats } from "../s
 import { generatePlan, PLAN_DAYS, PHASES, theoryMinutes, practiceMinutes, MOCK_EVERY, WEEKDAY_MAIN_SUBJECT } from "../src/lib/plan-generator";
 import { weekdayIndex } from "../src/lib/dates";
 import { taskReward, XP_PER_MINUTE, COINS_DIVISOR, MOCK_BONUS_XP, REVIEW_BONUS_XP } from "../src/lib/gamification";
+import {
+  AVATAR_PRESETS,
+  DEFAULT_PROFILE,
+  FREE_BACKGROUND,
+  FREE_FRAME,
+  NO_TITLE,
+  SHOP_ITEMS,
+  parseInventory,
+  sanitizeProfile,
+} from "../src/lib/shop";
+import { remainingMs, topicFocusReward, topicMinutes, type FocusSession } from "../src/lib/focus";
+import { parseTopicFocus, topicFocusBonus } from "../src/lib/social";
 
 let failures = 0;
 const ok = (cond: boolean, msg: string) => {
@@ -118,6 +130,41 @@ console.log(`  повторение 24м: +${rReview.xp} XP (24×0.4 + 30), +${r
 ok(rTheory.xp === Math.round(50 * XP_PER_MINUTE) && rTheory.coins === Math.round(50 / COINS_DIVISOR), "XP = round(минуты × 0.4), монеты = round(минуты / 4)");
 ok(rMock.xp === Math.round(120 * XP_PER_MINUTE) + MOCK_BONUS_XP, "+25 XP за пробник");
 ok(rReview.xp === Math.round(24 * XP_PER_MINUTE) + REVIEW_BONUS_XP, "+30 XP за повторение");
+
+console.log("\n══ МАГАЗИН И ПРОФИЛЬ ══");
+ok(new Set(SHOP_ITEMS.map((i) => i.id)).size === SHOP_ITEMS.length, `id товаров уникальны (${SHOP_ITEMS.length} шт.)`);
+ok(SHOP_ITEMS.every((i) => i.price >= 0), "цены не отрицательные");
+ok(
+  SHOP_ITEMS.filter((i) => i.price === 0).map((i) => i.id).sort().join(",") ===
+    [FREE_FRAME, FREE_BACKGROUND, NO_TITLE].sort().join(","),
+  "бесплатны только базовые предметы",
+);
+ok(
+  ["frame", "background", "title"].every((slot) => SHOP_ITEMS.filter((i) => i.slot === slot).length >= 4),
+  "в каждом слоте не меньше 4 предметов",
+);
+ok(
+  AVATAR_PRESETS.every((p) => p.rows.length === 8 && p.rows.every((r) => r.length === 8)),
+  `пиксельные аватары 8×8 (${AVATAR_PRESETS.length} шт.)`,
+);
+ok(sanitizeProfile({ username: "x".repeat(40) }).username.length === 24, "юзернейм обрезается до 24 символов");
+ok(sanitizeProfile({ avatar: "hack.png" }).avatar === DEFAULT_PROFILE.avatar, "неизвестный аватар отбрасывается");
+ok(sanitizeProfile({ frame: "frame-nope" }).frame === FREE_FRAME, "неизвестная рамка отбрасывается");
+ok(parseInventory(null).frames.includes(FREE_FRAME), "в инвентаре всегда есть базовая рамка");
+
+console.log("\n══ ФОКУС-РЕЖИМ ══");
+const now = Date.now();
+const fresh: FocusSession = { kind: "task", id: "t", minutes: 50, startedAt: now };
+const expired: FocusSession = { ...fresh, startedAt: now - 51 * 60_000 };
+ok(remainingMs(fresh, now) === 50 * 60_000, "свежий таймер показывает полное время");
+ok(remainingMs(expired, now) === 0, "истёкший таймер = 0 (только тогда зачёт)");
+ok(remainingMs({ ...fresh, startedAt: now - 25 * 60_000 }, now) === 25 * 60_000, "обратный отсчёт идёт по startedAt");
+ok(topicMinutes(2.5) === 150, "часы темы переводятся в минуты (2.5 ч = 150 мин)");
+const tr = topicFocusReward(120);
+ok(tr.xp === Math.round(120 * XP_PER_MINUTE) && tr.coins === Math.round(120 / COINS_DIVISOR), "тема даёт XP 0.4/мин и монеты 0.25/мин");
+const bonus = topicFocusBonus(JSON.stringify({ a: 120, b: 60 }));
+ok(bonus.xp === 72 && bonus.coins === 45, `награды за темы суммируются (${bonus.xp} XP, ${bonus.coins} монет)`);
+ok(Object.keys(parseTopicFocus("не json")).length === 0, "битый JSON наград за темы игнорируется");
 
 console.log("\n══ ИТОГ ══");
 if (failures === 0) {

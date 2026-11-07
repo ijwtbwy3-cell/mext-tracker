@@ -11,6 +11,11 @@ import type {
   DiaryRow,
   TopicStatus,
 } from "./types";
+import type { FocusKind, FocusMap, FocusSession } from "./focus";
+import type { Inventory, Profile, ShopSlot } from "./shop";
+import type { FocusFinishResult } from "./social";
+
+export type CoinsState = { earned: number; bonus: number; spent: number; balance: number };
 
 export class ApiError extends Error {
   constructor(
@@ -87,4 +92,45 @@ export const api = {
     request<{ ok: boolean }>("/api/restore", { method: "POST", body: JSON.stringify(backup) }),
 
   reset: () => request<{ ok: boolean }>("/api/reset", { method: "POST", body: JSON.stringify({}) }),
+
+  /* ─────────── профиль ─────────── */
+  getProfile: () => request<{ profile: Profile; inventory: Inventory }>("/api/profile"),
+
+  saveProfile: (patch: { username?: string; bio?: string; avatar?: string }) =>
+    request<{ profile: Profile }>("/api/profile", { method: "POST", body: JSON.stringify(patch) }),
+
+  /* ─────────── магазин ─────────── */
+  getShop: () =>
+    request<{ profile: Profile; inventory: Inventory; coins: CoinsState }>("/api/shop"),
+
+  buyItem: (itemId: string) =>
+    request<{ profile: Profile; inventory: Inventory; coins: CoinsState; bought: string }>("/api/shop", {
+      method: "POST",
+      body: JSON.stringify({ action: "buy", itemId }),
+    }),
+
+  equipItem: (slot: ShopSlot, itemId: string) =>
+    request<{ profile: Profile }>("/api/shop", {
+      method: "POST",
+      body: JSON.stringify({ action: "equip", slot, itemId }),
+    }),
+
+  /* ─────────── фокус-режим ─────────── */
+  startFocus: (input: { kind: FocusKind; id: string; minutes: number; title?: string }) =>
+    request<{ session: FocusSession; focus: FocusMap }>("/api/focus", {
+      method: "POST",
+      body: JSON.stringify({ action: "start", ...input }),
+    }),
+
+  cancelFocus: (kind: FocusKind, id: string) =>
+    request<{ focus: FocusMap }>("/api/focus", {
+      method: "POST",
+      body: JSON.stringify({ action: "cancel", kind, id }),
+    }),
+
+  finishFocus: (kind: FocusKind, id: string) =>
+    request<{ result: FocusFinishResult; focus: FocusMap }>("/api/focus", {
+      method: "POST",
+      body: JSON.stringify({ action: "finish", kind, id }),
+    }),
 };

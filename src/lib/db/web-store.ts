@@ -8,6 +8,7 @@ import { eq, sql } from "drizzle-orm";
 import * as t from "./schema";
 import { buildContent, defaultSettings } from "../content";
 import { CURRICULUM_VERSION } from "../curriculum";
+import { applySocialTotals } from "../social";
 import { DEFAULT_START_DATE } from "../plan-generator";
 import {
   applyCompletion,
@@ -32,11 +33,6 @@ export class WebStore implements DataStore {
     private pool: Pool,
     private db: Db,
   ) {}
-
-  private async getSetting(key: string): Promise<string | null> {
-    const rows = await this.db.select().from(t.settings).where(eq(t.settings.key, key)).limit(1);
-    return rows.length > 0 ? rows[0].value : null;
-  }
 
   private async setSettingRow(key: string, value: string): Promise<void> {
     await this.db
@@ -130,11 +126,14 @@ export class WebStore implements DataStore {
       planDays: planDays as unknown as BootstrapPayload["planDays"],
       tasks: tasks as unknown as BootstrapPayload["tasks"],
       diary: diary as unknown as BootstrapPayload["diary"],
-      totals: computeTotals({
-        tasks: tasks as unknown as TaskRow[],
-        topicsDone,
-        topicsTotal: topics.length,
-      }),
+      totals: applySocialTotals(
+        computeTotals({
+          tasks: tasks as unknown as TaskRow[],
+          topicsDone,
+          topicsTotal: topics.length,
+        }),
+        settings,
+      ),
     };
   }
 
@@ -145,11 +144,16 @@ export class WebStore implements DataStore {
       .from(t.progress)
       .where(eq(t.progress.status, "done"));
     const total = await this.db.select({ n: sql<number>`count(*)::int` }).from(t.topics);
-    return computeTotals({
-      tasks: tasks as unknown as TaskRow[],
-      topicsDone: done[0]?.n ?? 0,
-      topicsTotal: total[0]?.n ?? 0,
-    });
+    const settingsRows = await this.db.select().from(t.settings);
+    const settings = Object.fromEntries(settingsRows.map((r) => [r.key, r.value]));
+    return applySocialTotals(
+      computeTotals({
+        tasks: tasks as unknown as TaskRow[],
+        topicsDone: done[0]?.n ?? 0,
+        topicsTotal: total[0]?.n ?? 0,
+      }),
+      settings,
+    );
   }
 
   private async rederiveTopic(topicId: string): Promise<void> {
@@ -244,6 +248,19 @@ export class WebStore implements DataStore {
 
   async setSetting(key: string, value: string): Promise<void> {
     await this.setSettingRow(key, value);
+  }
+
+  async getSetting(key: string): Promise<string | null> {
+    const rows = await this.db.select().from(t.settings).where(eq(t.settings.key, key)).limit(1);
+    return rows.length > 0 ? rows[0].value : null;
+  }
+
+  /** Сколько монет заработано заданиями (без учёта трат). */
+  async earnedCoins(): Promise<number> {
+    const rows = await this.db
+      .select({ n: sql<number>`coalesce(sum(${t.tasks.awardedCoins}),0)::int` })
+      .from(t.tasks);
+    return rows[0]?.n ?? 0;
   }
 
   async exportBackup(): Promise<BackupV1> {

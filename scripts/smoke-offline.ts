@@ -1,7 +1,8 @@
 /**
  * Смоук-тест офлайн-слоя данных: реальный sql.js (SQLite WASM) в Node.
  * Проверяет: сид контента и плана (5/40/225, 636), выполнение задания
- * с наградами, статусы тем, дневник, резервную копию v1, сброс.
+ * с наградами, статусы тем, дневник, резервную копию v1, сброс,
+ * фокус-режим, профиль и магазин косметики.
  *
  * Запуск: npx tsx scripts/smoke-offline.ts
  */
@@ -9,6 +10,8 @@ import path from "node:path";
 import { DDL } from "../src/lib/offline/ddl";
 import { SqliteStore } from "../src/lib/offline/sqlite-store";
 import { CURRICULUM_VERSION } from "../src/lib/curriculum";
+import { topicFocusReward } from "../src/lib/focus";
+import { SocialError, buyItem, coinsState, equipItem, finishFocus, readProfile, saveProfile, startFocus } from "../src/lib/social";
 
 let failures = 0;
 const ok = (cond: boolean, msg: string) => {
@@ -101,6 +104,68 @@ async function main() {
   ok(afterRestore.diary.length === 1, "импорт восстановил дневник");
   ok(afterRestore.tasks.filter((t) => t.status === "done").length >= 3, "импорт восстановил выполненные задания");
   ok(afterRestore.progress.length > 0, `импорт восстановил прогресс (${afterRestore.progress.length} тем)`);
+
+  console.log("\n══ профиль, магазин, фокус ══");
+  const prof = await saveProfile(store, { username: "Тестер", bio: "Готовлюсь к MEXT" });
+  ok(prof.username === "Тестер" && prof.bio.includes("MEXT"), "профиль сохраняется");
+  ok((await readProfile(store)).username === "Тестер", "профиль читается обратно");
+
+  // фокус по заданию: до конца таймера зачёта нет
+  const focusTask = (await store.bootstrap()).tasks.find((t) => t.status === "todo")!;
+  await startFocus(store, { kind: "task", id: focusTask.id, minutes: focusTask.minutes, title: focusTask.title });
+  let earlyBlocked = false;
+  try {
+    await finishFocus(store, "task", focusTask.id);
+  } catch (e) {
+    earlyBlocked = e instanceof SocialError;
+  }
+  ok(earlyBlocked, "досрочно завершить фокус нельзя");
+
+  // «отсиживаем» таймер и завершаем
+  const rawFocus = JSON.parse((await store.getSetting("focusSessions")) ?? "{}");
+  for (const k of Object.keys(rawFocus)) rawFocus[k].startedAt = Date.now() - (rawFocus[k].minutes + 1) * 60_000;
+  await store.setSetting("focusSessions", JSON.stringify(rawFocus));
+  const fin = await finishFocus(store, "task", focusTask.id);
+  ok(fin.reward.xp > 0 && fin.reward.coins > 0, `фокус засчитал задание: +${fin.reward.xp} XP, +${fin.reward.coins} монет`);
+  const afterFocus = await store.bootstrap();
+  ok(afterFocus.tasks.find((t) => t.id === focusTask.id)?.status === "done", "задание закрыто после таймера");
+  ok(Object.keys(JSON.parse(afterFocus.settings.focusSessions ?? "{}")).length === 0, "сессия фокуса очищена");
+
+  // фокус по теме даёт XP и статус «изучено»
+  const topic = (await store.bootstrap()).topics[0];
+  const tp = await startFocus(store, { kind: "topic", id: topic.id, minutes: 30 });
+  const rawTopic = JSON.parse((await store.getSetting("focusSessions")) ?? "{}");
+  rawTopic[`topic:${topic.id}`].startedAt = Date.now() - (tp.minutes + 1) * 60_000;
+  await store.setSetting("focusSessions", JSON.stringify(rawTopic));
+  const finTopic = await finishFocus(store, "topic", topic.id);
+  const afterTopic = await store.bootstrap();
+  ok(finTopic.reward.xp === topicFocusReward(30).xp, `тема дала +${finTopic.reward.xp} XP`);
+  ok(afterTopic.progress.find((p) => p.topicId === topic.id)?.status === "done", "тема помечена изученной");
+  ok(afterTopic.totals.xp > afterFocus.totals.xp, "награда за тему попала в тоталы");
+
+  // магазин: покупка списывает монеты, экипировка сохраняется
+  const before = await coinsState(store as never);
+  ok(before.balance >= 10, `баланс монет: ${before.balance}`);
+  const bought = await buyItem(store as never, "frame-coal");
+  ok(bought.inventory.frames.includes("frame-coal"), "рамка «Уголёк» куплена");
+  const afterBuy = await coinsState(store as never);
+  ok(afterBuy.balance === before.balance - 10, `монеты списаны (${before.balance} → ${afterBuy.balance})`);
+  let doubleBlocked = false;
+  try {
+    await buyItem(store as never, "frame-coal");
+  } catch (e) {
+    doubleBlocked = e instanceof SocialError;
+  }
+  ok(doubleBlocked, "повторно купить тот же предмет нельзя");
+  let poorBlocked = false;
+  try {
+    await buyItem(store as never, "frame-rainbow");
+  } catch (e) {
+    poorBlocked = e instanceof SocialError;
+  }
+  ok(poorBlocked, "дорогой предмет без монет не покупается");
+  const equipped = await equipItem(store as never, "frame", "frame-coal");
+  ok(equipped.frame === "frame-coal", "рамка экипирована в профиль");
 
   console.log("\n══ повторное открытие (сид идемпотентен) ══");
   const store2 = new SqliteStore(db);

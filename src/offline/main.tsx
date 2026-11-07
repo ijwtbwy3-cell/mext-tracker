@@ -26,6 +26,7 @@ import { ScheduleScreen } from "@/screens/ScheduleScreen";
 import { SubjectsScreen } from "@/screens/SubjectsScreen";
 import { DiaryScreen } from "@/screens/DiaryScreen";
 import { ExamScreen } from "@/screens/ExamScreen";
+import { ProfileScreen } from "@/screens/ProfileScreen";
 
 const ROUTES: Record<string, ComponentType> = {
   "/tasks": TasksScreen,
@@ -34,6 +35,7 @@ const ROUTES: Record<string, ComponentType> = {
   "/subjects": SubjectsScreen,
   "/diary": DiaryScreen,
   "/exam": ExamScreen,
+  "/profile": ProfileScreen,
 };
 
 function OfflineApp() {
