@@ -47,13 +47,25 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-
-      - uses: android-actions/setup-android@v3
-
-      - name: Android SDK 36
+          
+        - name: Android SDK 36
         run: |
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" > /dev/null
+          set -uo pipefail
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          echo "SDK_ROOT=$SDK_ROOT"
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -maxdepth 3 -type f -name sdkmanager 2>/dev/null | head -n 1 || true)"
+          if [ -z "$SDKMANAGER" ]; then SDKMANAGER="$(command -v sdkmanager || true)"; fi
+          echo "sdkmanager=$SDKMANAGER"
+          if [ -z "$SDKMANAGER" ]; then echo "sdkmanager не найден"; exit 1; fi
+          yes | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses > /dev/null 2>&1 || true
+          for PKG in "platform-tools" "platforms;android-36" "build-tools;36.0.0"; do
+            "$SDKMANAGER" --sdk_root="$SDK_ROOT" --install "$PKG" > /dev/null 2>&1 \
+              && echo "ok: $PKG" || echo "пропущено (уже есть): $PKG"
+          done
+          echo "Платформы: $(ls "$SDK_ROOT/platforms" 2>/dev/null | tr '\n' ' ')"
+          echo "Build-tools: $(ls "$SDK_ROOT/build-tools" 2>/dev/null | tr '\n' ' ')"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
 
       - name: Платформа Android (папка android/ не хранится в репозитории)
         run: |
